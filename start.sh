@@ -18,7 +18,13 @@ sleep 1
 
 nohup node scripts/sync-server.mjs >> server.log 2>&1 &
 
-if [[ -n "${PUBLIC_TUNNEL_DOMAIN:-}" ]]; then
+if [[ -n "${NGROK_AUTHTOKEN:-}" ]]; then
+  if [[ -n "${NGROK_URL:-}" ]]; then
+    nohup npx --yes ngrok http 8787 --authtoken "${NGROK_AUTHTOKEN}" --url "${NGROK_URL}" >> tunnel.log 2>&1 &
+  else
+    nohup npx --yes ngrok http 8787 --authtoken "${NGROK_AUTHTOKEN}" >> tunnel.log 2>&1 &
+  fi
+elif [[ -n "${PUBLIC_TUNNEL_DOMAIN:-}" ]]; then
   nohup npx --yes localtunnel --port 8787 --subdomain "${PUBLIC_TUNNEL_DOMAIN}" >> tunnel.log 2>&1 &
 else
   nohup cloudflared tunnel --url http://localhost:8787 --no-autoupdate >> tunnel.log 2>&1 &
