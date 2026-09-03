@@ -538,7 +538,13 @@ function InvestmentsWorkspace({
             </label>
             <span>{isRefreshing ? "Actualizando precios..." : `Refresh cada ${Math.round(QUOTE_REFRESH_MS / 60000)} min`}</span>
             <span>{lastUpdatedAt ? `Última actualización ${formatDateTime(lastUpdatedAt)}` : "Usando snapshot del XML"}</span>
-            {state.investmentPortfolio && <span>{`${state.investmentPortfolio.sourceFileName} · importado ${formatDateTime(state.investmentPortfolio.importedAt)}`}</span>}
+            {state.investmentPortfolio && (
+              <span>
+                {`${state.investmentPortfolio.sourceFileName} · importado ${formatDateTime(state.investmentPortfolio.importedAt)}${
+                  state.investmentPortfolio.filterName ? ` · filtro ${state.investmentPortfolio.filterName}` : ""
+                }`}
+              </span>
+            )}
           </div>
         </div>
 

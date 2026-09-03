@@ -258,6 +258,7 @@ export interface InvestmentPortfolioSnapshot {
   sourceFileName: string;
   importedAt: string;
   holdings: InvestmentHolding[];
+  filterName?: string | null;
 }
 
 export interface AppState {
