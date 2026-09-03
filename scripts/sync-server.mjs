@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import http from "node:http";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 import { runOpenAiFinanceAgent } from "./openai-finance-agent.mjs";
 import { parseReceiptImageWithOpenAI } from "./openai-receipt-parser.mjs";
@@ -14,8 +15,10 @@ const port = Number(process.env.SYNC_PORT || process.env.PORT || 8787);
 const host = process.env.SYNC_HOST || "0.0.0.0";
 const dataDir = path.join(workspaceRoot, ".local-sync");
 const statePath = path.join(dataDir, "state.json");
+const dbPath = path.join(dataDir, "state.db");
 const importedStatePath = path.join(workspaceRoot, "src", "data", "importedState.json");
 const distDir = path.join(workspaceRoot, "dist");
+const database = await openDatabase();
 
 let envelope = await loadEnvelope();
 
@@ -148,10 +151,15 @@ server.listen(port, host, () => {
 async function loadEnvelope() {
   await fs.mkdir(dataDir, { recursive: true });
 
+  const storedEnvelope = readStoredEnvelope();
+  if (storedEnvelope) return storedEnvelope;
+
   try {
-    const stored = JSON.parse(await fs.readFile(statePath, "utf8"));
-    if (stored?.version === 1 && Number.isFinite(stored.revision) && isAppState(stored.state)) {
-      return { ...stored, state: applyServerMigrations(stored.state) };
+    const legacy = JSON.parse(await fs.readFile(statePath, "utf8"));
+    if (legacy?.version === 1 && Number.isFinite(legacy.revision) && isAppState(legacy.state)) {
+      const migrated = { ...legacy, state: applyServerMigrations(legacy.state) };
+      saveEnvelope(migrated);
+      return migrated;
     }
   } catch {
     // First run: seed from imported history.
@@ -169,11 +177,75 @@ async function loadEnvelope() {
   return created;
 }
 
-async function saveEnvelope(nextEnvelope) {
+function saveEnvelope(nextEnvelope) {
+  const normalized = {
+    ...nextEnvelope,
+    state: applyServerMigrations(nextEnvelope.state)
+  };
+
+  const insertCurrent = database.prepare(`
+    INSERT INTO app_state (singleton, version, revision, updated_at, state_json)
+    VALUES (1, ?, ?, ?, ?)
+    ON CONFLICT(singleton) DO UPDATE SET
+      version = excluded.version,
+      revision = excluded.revision,
+      updated_at = excluded.updated_at,
+      state_json = excluded.state_json
+  `);
+  insertCurrent.run(
+    normalized.version,
+    normalized.revision,
+    normalized.updatedAt,
+    JSON.stringify(normalized.state)
+  );
+
+  const insertHistory = database.prepare(`
+    INSERT INTO state_history (revision, updated_at, state_json)
+    VALUES (?, ?, ?)
+  `);
+  insertHistory.run(normalized.revision, normalized.updatedAt, JSON.stringify(normalized.state));
+}
+
+function readStoredEnvelope() {
+  const row = database
+    .prepare("SELECT version, revision, updated_at, state_json FROM app_state WHERE singleton = 1")
+    .get();
+  if (!row) return undefined;
+
+  try {
+    const state = JSON.parse(String(row.state_json));
+    if (!isAppState(state)) return undefined;
+    return {
+      version: Number(row.version),
+      revision: Number(row.revision),
+      updatedAt: String(row.updated_at),
+      state: applyServerMigrations(state)
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+async function openDatabase() {
   await fs.mkdir(dataDir, { recursive: true });
-  const tmpPath = `${statePath}.${process.pid}.tmp`;
-  await fs.writeFile(tmpPath, `${JSON.stringify(nextEnvelope, null, 2)}\n`);
-  await fs.rename(tmpPath, statePath);
+  const db = new DatabaseSync(dbPath);
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    CREATE TABLE IF NOT EXISTS app_state (
+      singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
+      version INTEGER NOT NULL,
+      revision INTEGER NOT NULL,
+      updated_at TEXT NOT NULL,
+      state_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS state_history (
+      revision INTEGER PRIMARY KEY,
+      updated_at TEXT NOT NULL,
+      state_json TEXT NOT NULL
+    );
+  `);
+  return db;
 }
 
 function isAppState(value) {
