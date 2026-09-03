@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "dev:sync": "node scripts/dev-sync.mjs",
     "build": "tsc --noEmit && vite build",
+    "postbuild": "cp dist/index.html dist/404.html",
     "import:spendee": "node scripts/import-spendee.mjs",
     "preview": "vite preview --host 0.0.0.0",
     "sync": "node scripts/sync-server.mjs",
