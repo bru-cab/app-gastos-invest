@@ -619,6 +619,110 @@ textarea {
   font-weight: 800;
 }
 
+.investmentsPanel {
+  display: grid;
+  gap: 18px;
+}
+
+.investmentsHeader {
+  align-items: start;
+}
+
+.investmentsMeta {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.investmentList {
+  display: grid;
+  gap: 10px;
+}
+
+.investmentRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.5fr) repeat(4, minmax(110px, 0.75fr)) minmax(100px, 0.55fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #e7ded5;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.investmentIdentity,
+.investmentMetric,
+.quoteBadge {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.investmentIdentity strong,
+.investmentMetric strong,
+.quoteBadge strong {
+  display: block;
+}
+
+.investmentIdentity span,
+.investmentMetric span,
+.quoteBadge span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.quoteBadge {
+  justify-items: end;
+}
+
+@media (max-width: 1100px) {
+  .investmentRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quoteBadge,
+  .investmentsMeta {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 780px) {
+  .appShell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mainPanel {
+    padding: 18px;
+  }
+
+  .topBar,
+  .twoColumn,
+  .accountsGrid,
+  .monthContentGrid,
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .topMetrics {
+    grid-template-columns: 1fr;
+  }
+
+  .investmentRow,
+  .formGrid,
+  .amountLine {
+    grid-template-columns: 1fr;
+  }
+}
+
 .primaryButton.small {
   min-height: 34px;
   padding: 0 12px;
@@ -681,6 +785,18 @@ textarea {
 .pillButton {
   margin-left: auto;
   text-transform: capitalize;
+}
+
+.uploadPill {
+  position: relative;
+  overflow: hidden;
+}
+
+.uploadPill input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .inlineAlert {

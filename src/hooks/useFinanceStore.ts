@@ -5,6 +5,7 @@ import type {
   Budget,
   Currency,
   InboxDraft,
+  InvestmentPortfolioSnapshot,
   ParsedTransactionDraft,
   ReceiptLineItemDraft,
   RecurringRule,
@@ -290,6 +291,12 @@ export function useFinanceStore() {
           ...current,
           importBatches: [batch, ...current.importBatches],
           transactions: [...transactions, ...current.transactions]
+        }));
+      },
+      importInvestmentPortfolio(portfolio: InvestmentPortfolioSnapshot) {
+        setState((current) => ({
+          ...current,
+          investmentPortfolio: portfolio
         }));
       },
       updateAccountInitialBalance(accountId: string, initialBalance: number) {

@@ -126,7 +126,8 @@ const state: AppState = {
   importBatches: [],
   inboxDrafts: [],
   fxRates: [],
-  agentConversations: []
+  agentConversations: [],
+  investmentPortfolio: null
 };
 
 describe("askFinanceAgent", () => {

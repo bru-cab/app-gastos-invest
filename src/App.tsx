@@ -65,6 +65,7 @@ import type {
   Currency,
   ImportPreview,
   InboxDraft,
+  InvestmentHolding,
   ParsedTransactionDraft,
   ReceiptLineItemDraft,
   RecurringRule,
@@ -108,6 +109,18 @@ import { useFinanceStore } from "./hooks/useFinanceStore";
 import { askFinanceAgent } from "./lib/financeAgent";
 import { askRemoteFinanceAgent, getAgentHealth, type AgentHealth } from "./lib/agentClient";
 import { orderTagsByFrequency, suggestTags } from "./lib/tagSuggestions";
+import { portfolioSnapshot } from "./data/portfolioSnapshot";
+import { parsePortfolioPerformanceXml } from "./lib/portfolioPerformanceImport";
+import {
+  buildFallbackQuoteMap,
+  buildPortfolioValuation,
+  persistCachedQuotes,
+  QUOTE_REFRESH_MS,
+  readCachedQuotes,
+  refreshQuotes,
+  shouldRefreshQuotes,
+  type InvestmentQuote
+} from "./lib/investments";
 
 type MainTab = "expenses" | "investments" | "agent";
 type ExpenseTab = "create" | "month" | "analytics" | "accounts";
@@ -239,7 +252,7 @@ export default function App() {
             currentMonth={currentMonth}
           />
         )}
-        {mainTab === "investments" && <Placeholder icon={<BarChart3 />} title="Inversiones" />}
+        {mainTab === "investments" && <InvestmentsWorkspace state={state} actions={actions} />}
         {mainTab === "agent" && <AgentWorkspace state={state} actions={actions} />}
       </main>
 
@@ -435,6 +448,142 @@ function ExpensesWorkspace({
   );
 }
 
+function InvestmentsWorkspace({
+  state,
+  actions
+}: {
+  state: AppState;
+  actions: ReturnType<typeof useFinanceStore>["actions"];
+}) {
+  const holdings = useMemo<InvestmentHolding[]>(
+    () => state.investmentPortfolio?.holdings?.length ? state.investmentPortfolio.holdings : portfolioSnapshot,
+    [state.investmentPortfolio]
+  );
+  const fallbackQuotes = useMemo(() => buildFallbackQuoteMap(holdings), [holdings]);
+  const [quotes, setQuotes] = useState<Record<string, InvestmentQuote>>(fallbackQuotes);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [importError, setImportError] = useState("");
+
+  useEffect(() => {
+    setQuotes(fallbackQuotes);
+    const cached = readCachedQuotes();
+    if (cached?.quotes) {
+      setQuotes((current) => ({ ...current, ...cached.quotes }));
+      setLastUpdatedAt(new Date(cached.savedAt).toISOString());
+    }
+
+    if (cached && !shouldRefreshQuotes(cached.savedAt)) return;
+
+    let cancelled = false;
+
+    async function runRefresh() {
+      setIsRefreshing(true);
+      const freshQuotes = await refreshQuotes(holdings, cached?.quotes ?? fallbackQuotes);
+      if (cancelled) return;
+      setQuotes((current) => ({ ...current, ...freshQuotes }));
+      persistCachedQuotes(freshQuotes);
+      setLastUpdatedAt(new Date().toISOString());
+      setIsRefreshing(false);
+    }
+
+    void runRefresh();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fallbackQuotes, holdings]);
+
+  const valuation = useMemo(() => buildPortfolioValuation(holdings, quotes), [holdings, quotes]);
+  const liveCount = useMemo(() => valuation.items.filter((item) => item.priceSource !== "xml").length, [valuation.items]);
+
+  async function handlePortfolioFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const xml = await file.text();
+      const nextPortfolio = parsePortfolioPerformanceXml(xml, file.name);
+      actions.importInvestmentPortfolio(nextPortfolio);
+      setImportError("");
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "No pude importar ese XML.");
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  return (
+    <section className="workspace">
+      <header className="topBar">
+        <div>
+          <span className="eyebrow">Inversiones</span>
+          <h1>Valor actual del portafolio y peso de cada posición.</h1>
+        </div>
+        <div className="topMetrics">
+          <Metric label="Valor total" value={formatMoney(valuation.totalValue, "USD")} accent="blue" />
+          <Metric label="Posiciones" value={String(valuation.items.length)} accent="green" />
+          <Metric label="Fuente live" value={`${liveCount}/${valuation.items.length}`} accent="coral" />
+        </div>
+      </header>
+
+      <div className="panel investmentsPanel">
+        <div className="sectionTitle investmentsHeader">
+          <h2>Portafolio actual</h2>
+          <div className="investmentsMeta">
+            <label className="pillButton uploadPill">
+              <Upload size={16} />
+              Importar XML
+              <input type="file" accept=".xml,text/xml,application/xml" onChange={handlePortfolioFile} />
+            </label>
+            <span>{isRefreshing ? "Actualizando precios..." : `Refresh cada ${Math.round(QUOTE_REFRESH_MS / 60000)} min`}</span>
+            <span>{lastUpdatedAt ? `Última actualización ${formatDateTime(lastUpdatedAt)}` : "Usando snapshot del XML"}</span>
+            {state.investmentPortfolio && <span>{`${state.investmentPortfolio.sourceFileName} · importado ${formatDateTime(state.investmentPortfolio.importedAt)}`}</span>}
+          </div>
+        </div>
+
+        {importError && <div className="syncFeedback">{importError}</div>}
+
+        <div className="investmentList" role="list" aria-label="Posiciones del portafolio">
+          {valuation.items.map((holding) => (
+            <article className="investmentRow" key={holding.id} role="listitem">
+              <div className="investmentIdentity">
+                <strong>{holding.symbol}</strong>
+                <span>{holding.name}</span>
+              </div>
+
+              <div className="investmentMetric">
+                <span>Valor</span>
+                <strong>{formatMoney(holding.marketValue, "USD")}</strong>
+              </div>
+
+              <div className="investmentMetric">
+                <span>Share</span>
+                <strong>{formatPercent(holding.allocation * 100)}</strong>
+              </div>
+
+              <div className="investmentMetric">
+                <span>Precio</span>
+                <strong>{formatMoney(holding.price, "USD")}</strong>
+              </div>
+
+              <div className="investmentMetric">
+                <span>Cantidad</span>
+                <strong>{formatQuantity(holding.shares)}</strong>
+              </div>
+
+              <div className="quoteBadge">
+                <strong>{holding.priceSource === "xml" ? "XML" : holding.priceSource.toUpperCase()}</strong>
+                <span>{formatQuoteDate(holding.priceAsOf)}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Metric({ label, value, accent }: { label: ReactNode; value: string; accent: "coral" | "green" | "red" | "blue" }) {
   return (
     <div className={`metric ${accent}`}>
@@ -455,6 +604,21 @@ function ItauBadge({ compact = false }: { compact?: boolean }) {
 
 function isItauSavings(item: ReceiptLineItemDraft): boolean {
   return normalizeLookupKey(item.discountSource ?? "").includes("itau");
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat("es-UY", {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
+}
+
+function formatQuoteDate(value: string) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat("es-UY", {
+    dateStyle: "short"
+  }).format(date);
 }
 
 function CreateExpenseView({ state, actions }: { state: AppState; actions: ReturnType<typeof useFinanceStore>["actions"] }) {

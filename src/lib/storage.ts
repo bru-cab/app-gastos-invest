@@ -59,7 +59,8 @@ function reviveState(value: unknown): AppState {
     importBatches: partial.importBatches ?? initial.importBatches,
     inboxDrafts: partial.inboxDrafts ?? initial.inboxDrafts,
     fxRates: partial.fxRates ?? initial.fxRates,
-    agentConversations: dedupeAgentConversations(partial.agentConversations ?? initial.agentConversations)
+    agentConversations: dedupeAgentConversations(partial.agentConversations ?? initial.agentConversations),
+    investmentPortfolio: partial.investmentPortfolio ?? initial.investmentPortfolio
   });
 }
 

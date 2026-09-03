@@ -242,6 +242,24 @@ export interface FxRate {
   createdAt: string;
 }
 
+export interface InvestmentHolding {
+  id: string;
+  symbol: string;
+  name: string;
+  shares: number;
+  currency: "USD";
+  lastPrice: number;
+  lastPriceDate: string;
+  quoteProvider: "yahoo" | "binance" | "xml";
+}
+
+export interface InvestmentPortfolioSnapshot {
+  source: "portfolio-performance" | "manual";
+  sourceFileName: string;
+  importedAt: string;
+  holdings: InvestmentHolding[];
+}
+
 export interface AppState {
   accounts: Account[];
   categories: Category[];
@@ -253,6 +271,7 @@ export interface AppState {
   inboxDrafts: InboxDraft[];
   fxRates: FxRate[];
   agentConversations: AgentConversation[];
+  investmentPortfolio: InvestmentPortfolioSnapshot | null;
 }
 
 export interface ImportPreviewRow {

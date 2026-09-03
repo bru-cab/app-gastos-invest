@@ -1,6 +1,7 @@
 import type { Account, AppState, Budget, Category, RecurringRule, Tag, Transaction } from "../types";
 import { createId } from "../lib/id";
 import { todayIso } from "../lib/date";
+import { defaultInvestmentPortfolio } from "./portfolioSnapshot";
 
 const createdAt = new Date().toISOString();
 
@@ -141,5 +142,6 @@ export const createInitialState = (): AppState => ({
   importBatches: [],
   inboxDrafts: [],
   fxRates: [],
-  agentConversations: []
+  agentConversations: [],
+  investmentPortfolio: defaultInvestmentPortfolio
 });
