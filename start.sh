@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PATH="/usr/local/bin:/usr/bin:/bin:/home/pi/.local/bin:$PATH"
+
+cd "$APP_DIR"
+
+pkill -f "scripts/sync-server.mjs" 2>/dev/null || true
+pkill -f "cloudflared tunnel --url http://localhost:8787" 2>/dev/null || true
+pkill -f "localtunnel --port 8787" 2>/dev/null || true
+pkill -f "lt --port 8787" 2>/dev/null || true
+
+sleep 1
+
+: > server.log
+: > tunnel.log
+
+nohup node scripts/sync-server.mjs >> server.log 2>&1 &
+
+if [[ -n "${PUBLIC_TUNNEL_DOMAIN:-}" ]]; then
+  nohup npx --yes localtunnel --port 8787 --subdomain "${PUBLIC_TUNNEL_DOMAIN}" >> tunnel.log 2>&1 &
+else
+  nohup cloudflared tunnel --url http://localhost:8787 --no-autoupdate >> tunnel.log 2>&1 &
+fi

@@ -145,7 +145,8 @@ const server = http.createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Gastos Invest sync escuchando en http://${host}:${port}`);
-  console.log(`Estado compartido: ${statePath}`);
+  console.log(`Estado compartido (SQLite): ${dbPath}`);
+  console.log(`Compat legacy JSON: ${statePath}`);
 });
 
 async function loadEnvelope() {
