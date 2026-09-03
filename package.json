@@ -1,0 +1,34 @@
+{
+  "name": "gastos-invest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "dev:sync": "node scripts/dev-sync.mjs",
+    "build": "tsc --noEmit && vite build",
+    "import:spendee": "node scripts/import-spendee.mjs",
+    "preview": "vite preview --host 0.0.0.0",
+    "sync": "node scripts/sync-server.mjs",
+    "serve:sync": "npm run build && node scripts/sync-server.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "papaparse": "^5.5.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tesseract.js": "^6.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.10.2",
+    "@types/papaparse": "^5.3.15",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^5.0.0",
+    "typescript": "^5.7.2",
+    "vite": "^7.2.7",
+    "vitest": "^4.1.11"
+  }
+}

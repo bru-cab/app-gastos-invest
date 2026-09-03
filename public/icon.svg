@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Gastos Invest">
+  <rect width="128" height="128" rx="26" fill="#243b53"/>
+  <path d="M29 84c15 7 31 8 48 2 9-3 16-8 22-15" fill="none" stroke="#f7c948" stroke-width="10" stroke-linecap="round"/>
+  <path d="M35 44h58c5 0 9 4 9 9v25c0 5-4 9-9 9H35c-5 0-9-4-9-9V53c0-5 4-9 9-9Z" fill="#f7f4ef"/>
+  <circle cx="64" cy="65" r="13" fill="#2f855a"/>
+  <path d="M42 35h44" stroke="#fb7185" stroke-width="9" stroke-linecap="round"/>
+</svg>
