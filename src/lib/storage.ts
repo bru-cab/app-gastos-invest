@@ -65,8 +65,11 @@ function reviveState(value: unknown): AppState {
 }
 
 function applyLocalMigrations(state: AppState): AppState {
+  const investmentPortfolio = sanitizeInvestmentPortfolio(state.investmentPortfolio);
+
   return {
     ...state,
+    investmentPortfolio,
     accounts: state.accounts.map((account) => {
       if (account.id === "account_prestamos_uyu" && account.initialBalance === 0) {
         return { ...account, initialBalance: 28549 };
@@ -86,6 +89,19 @@ function dedupeAgentConversations(conversations: AppState["agentConversations"])
     keptEmptyConversation = true;
     return true;
   });
+}
+
+export function sanitizeInvestmentPortfolio(investmentPortfolio: AppState["investmentPortfolio"]): AppState["investmentPortfolio"] {
+  if (!investmentPortfolio) return null;
+
+  const looksLikeLegacySnapshot = investmentPortfolio.holdings.some((holding) => {
+    if (holding.symbol === "BTC-USD" && holding.shares > 10) return true;
+    if (holding.symbol === "VOOG" && holding.shares > 1_000) return true;
+    if (holding.symbol === "META" && holding.shares > 100) return true;
+    return false;
+  });
+
+  return looksLikeLegacySnapshot ? null : investmentPortfolio;
 }
 
 function safeGetItem(key: string): string | null {

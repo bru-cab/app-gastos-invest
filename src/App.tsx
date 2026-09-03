@@ -109,7 +109,6 @@ import { useFinanceStore } from "./hooks/useFinanceStore";
 import { askFinanceAgent } from "./lib/financeAgent";
 import { askRemoteFinanceAgent, getAgentHealth, type AgentHealth } from "./lib/agentClient";
 import { orderTagsByFrequency, suggestTags } from "./lib/tagSuggestions";
-import { portfolioSnapshot } from "./data/portfolioSnapshot";
 import { parsePortfolioPerformanceXml } from "./lib/portfolioPerformanceImport";
 import {
   buildFallbackQuoteMap,
@@ -456,7 +455,7 @@ function InvestmentsWorkspace({
   actions: ReturnType<typeof useFinanceStore>["actions"];
 }) {
   const holdings = useMemo<InvestmentHolding[]>(
-    () => state.investmentPortfolio?.holdings?.length ? state.investmentPortfolio.holdings : portfolioSnapshot,
+    () => state.investmentPortfolio?.holdings ?? [],
     [state.investmentPortfolio]
   );
   const fallbackQuotes = useMemo(() => buildFallbackQuoteMap(holdings), [holdings]);
@@ -550,41 +549,48 @@ function InvestmentsWorkspace({
 
         {importError && <div className="syncFeedback">{importError}</div>}
 
-        <div className="investmentList" role="list" aria-label="Posiciones del portafolio">
-          {valuation.items.map((holding) => (
-            <article className="investmentRow" key={holding.id} role="listitem">
-              <div className="investmentIdentity">
-                <strong>{holding.symbol}</strong>
-                <span>{holding.name}</span>
-              </div>
+        {valuation.items.length ? (
+          <div className="investmentList" role="list" aria-label="Posiciones del portafolio">
+            {valuation.items.map((holding) => (
+              <article className="investmentRow" key={holding.id} role="listitem">
+                <div className="investmentIdentity">
+                  <strong>{holding.symbol}</strong>
+                  <span>{holding.name}</span>
+                </div>
 
-              <div className="investmentMetric">
-                <span>Valor</span>
-                <strong>{formatMoney(holding.marketValue, "USD")}</strong>
-              </div>
+                <div className="investmentMetric">
+                  <span>Valor</span>
+                  <strong>{formatMoney(holding.marketValue, "USD")}</strong>
+                </div>
 
-              <div className="investmentMetric">
-                <span>Share</span>
-                <strong>{formatPercent(holding.allocation * 100)}</strong>
-              </div>
+                <div className="investmentMetric">
+                  <span>Share</span>
+                  <strong>{formatPercent(holding.allocation * 100)}</strong>
+                </div>
 
-              <div className="investmentMetric">
-                <span>Precio</span>
-                <strong>{formatMoney(holding.price, "USD")}</strong>
-              </div>
+                <div className="investmentMetric">
+                  <span>Precio</span>
+                  <strong>{formatMoney(holding.price, "USD")}</strong>
+                </div>
 
-              <div className="investmentMetric">
-                <span>Cantidad</span>
-                <strong>{formatQuantity(holding.shares)}</strong>
-              </div>
+                <div className="investmentMetric">
+                  <span>Cantidad</span>
+                  <strong>{formatQuantity(holding.shares)}</strong>
+                </div>
 
-              <div className="quoteBadge">
-                <strong>{holding.priceSource === "xml" ? "XML" : holding.priceSource.toUpperCase()}</strong>
-                <span>{formatQuoteDate(holding.priceAsOf)}</span>
-              </div>
-            </article>
-          ))}
-        </div>
+                <div className="quoteBadge">
+                  <strong>{holding.priceSource === "xml" ? "XML" : holding.priceSource.toUpperCase()}</strong>
+                  <span>{formatQuoteDate(holding.priceAsOf)}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="emptyState">
+            <strong>Importá un XML de Portfolio Performance para ver el portafolio actual.</strong>
+            <span>Cuando lo cargues, guardamos las posiciones y refrescamos precios cada 15 minutos.</span>
+          </div>
+        )}
       </div>
     </section>
   );
