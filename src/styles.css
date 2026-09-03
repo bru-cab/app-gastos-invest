@@ -164,6 +164,12 @@ button {
   font-weight: 800;
 }
 
+.syncButton {
+  width: 100%;
+  justify-content: flex-start;
+  cursor: pointer;
+}
+
 .syncPill.online {
   color: var(--green);
   border-color: #bbf7d0;
@@ -2623,6 +2629,89 @@ tr:last-child td {
   color: #9a3412;
   border-color: #fed7aa;
   background: #fff7ed;
+}
+
+.syncModal {
+  max-width: 620px;
+}
+
+.syncModalIcon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  color: var(--blue);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.syncModalBody {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.syncInfoCard {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid #ebe4dc;
+  border-radius: 10px;
+  background: #fbfaf7;
+}
+
+.syncInfoCard strong {
+  font-size: 0.92rem;
+}
+
+.syncInfoCard code {
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.syncInfoCard span,
+.syncInfoCard a,
+.syncHint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.syncInfoCard a {
+  font-weight: 700;
+}
+
+.syncField {
+  display: grid;
+  gap: 7px;
+}
+
+.syncField > span {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.syncTokenRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.syncTokenRow input {
+  min-width: 0;
+}
+
+.syncFeedback {
+  padding: 10px 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 @media (max-width: 740px) {

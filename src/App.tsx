@@ -96,7 +96,14 @@ import {
 } from "./lib/inboxParser";
 import { parseRemoteInboxImage } from "./lib/inboxClient";
 import { importRowsToTransactions, parseSpendeeFile } from "./lib/spendeeImport";
-import { exportState } from "./lib/storage";
+import {
+  clearGitHubSyncConfig,
+  DEFAULT_GITHUB_SYNC_REPO,
+  exportState,
+  getGitHubSyncConfig,
+  saveGitHubSyncConfig,
+  testGitHubSyncConnection
+} from "./lib/storage";
 import { useFinanceStore } from "./hooks/useFinanceStore";
 import { askFinanceAgent } from "./lib/financeAgent";
 import { askRemoteFinanceAgent, getAgentHealth, type AgentHealth } from "./lib/agentClient";
@@ -178,6 +185,7 @@ export default function App() {
   const { state, actions, syncStatus } = useFinanceStore();
   const [mainTab, setMainTab] = useState<MainTab>("expenses");
   const [expenseTab, setExpenseTab] = useState<ExpenseTab>("create");
+  const [syncSettingsOpen, setSyncSettingsOpen] = useState(false);
   const currentMonth = monthKey(todayIso());
 
   return (
@@ -209,7 +217,7 @@ export default function App() {
         </nav>
 
         <div className="sidebarFooter">
-          <SyncStatusPill status={syncStatus} />
+          <SyncStatusPill status={syncStatus} onClick={() => setSyncSettingsOpen(true)} />
           <button className="iconText ghost" onClick={() => downloadBackup(state)} title="Exportar backup JSON">
             <Download size={16} />
             Backup
@@ -234,16 +242,136 @@ export default function App() {
         {mainTab === "investments" && <Placeholder icon={<BarChart3 />} title="Inversiones" />}
         {mainTab === "agent" && <AgentWorkspace state={state} actions={actions} />}
       </main>
+
+      <SyncSettingsModal open={syncSettingsOpen} onClose={() => setSyncSettingsOpen(false)} />
     </div>
   );
 }
 
-function SyncStatusPill({ status }: { status: ReturnType<typeof useFinanceStore>["syncStatus"] }) {
+function SyncStatusPill({ status, onClick }: { status: ReturnType<typeof useFinanceStore>["syncStatus"]; onClick: () => void }) {
   const online = status.state === "synced" || status.state === "saving" || status.state === "checking";
   return (
-    <div className={`syncPill ${online ? "online" : "offline"}`} title={status.state === "synced" ? `Revision ${status.revision}` : status.label}>
+    <button
+      type="button"
+      className={`syncPill syncButton ${online ? "online" : "offline"}`}
+      onClick={onClick}
+      title={status.state === "synced" ? `Revision ${status.revision}` : status.label}
+    >
       {online ? <Cloud size={16} /> : <CloudOff size={16} />}
       <span>{status.label}</span>
+    </button>
+  );
+}
+
+function SyncSettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [token, setToken] = useState("");
+  const [revealToken, setRevealToken] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const configured = Boolean(getGitHubSyncConfig()?.token);
+
+  useEffect(() => {
+    if (!open) return;
+    setToken(getGitHubSyncConfig()?.token ?? "");
+    setRevealToken(false);
+    setStatusText("");
+  }, [open]);
+
+  if (!open) return null;
+
+  async function save() {
+    const nextToken = token.trim();
+    if (!nextToken) {
+      setStatusText("Pegá un token de GitHub para activar el sync.");
+      return;
+    }
+
+    setBusy(true);
+    saveGitHubSyncConfig(nextToken);
+    const result = await testGitHubSyncConnection();
+    setBusy(false);
+    setStatusText(result.ok ? "Token guardado. Este dispositivo ya puede sincronizar." : result.error);
+  }
+
+  function disconnect() {
+    clearGitHubSyncConfig();
+    setToken("");
+    setStatusText("Sync GitHub desactivado en este dispositivo.");
+  }
+
+  return (
+    <div className="modalBackdrop" role="presentation" onClick={onClose}>
+      <div className="modalCard syncModal" role="dialog" aria-modal="true" aria-labelledby="sync-settings-title" onClick={(event) => event.stopPropagation()}>
+        <div className="modalHeader">
+          <div className="modalHeaderMain">
+            <div className="syncModalIcon">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <h2 id="sync-settings-title">Sync entre dispositivos</h2>
+              <span>Datos compartidos por GitHub en un repo privado.</span>
+            </div>
+          </div>
+          <button className="iconButton" type="button" onClick={onClose} title="Cerrar">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="syncModalBody">
+          <div className="syncInfoCard">
+            <strong>Repo de sync</strong>
+            <code>{DEFAULT_GITHUB_SYNC_REPO}</code>
+            <span>Branch `main` · archivo `state.json`</span>
+          </div>
+
+          <div className="syncInfoCard">
+            <strong>Token requerido</strong>
+            <span>Usá un fine-grained token con permiso `Contents: Read and write` para ese repo privado.</span>
+            <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noreferrer">
+              Crear token en GitHub
+            </a>
+          </div>
+
+          <label className="syncField">
+            <span>Personal access token</span>
+            <div className="syncTokenRow">
+              <input
+                type={revealToken ? "text" : "password"}
+                value={token}
+                onChange={(event) => setToken(event.target.value)}
+                placeholder="github_pat_..."
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+              />
+              <button className="iconButton" type="button" onClick={() => setRevealToken((current) => !current)} title={revealToken ? "Ocultar token" : "Mostrar token"}>
+                {revealToken ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </label>
+
+          <p className="syncHint">
+            Vas a tener que pegar este token una vez en la compu y una vez en el celular. Después el sync queda automático.
+          </p>
+
+          {statusText && <div className="syncFeedback">{statusText}</div>}
+        </div>
+
+        <div className="modalActions">
+          {configured && (
+            <button className="textButton danger" type="button" onClick={disconnect}>
+              Desconectar
+            </button>
+          )}
+          <button className="textButton" type="button" onClick={onClose}>
+            Cerrar
+          </button>
+          <button className="primaryButton" type="button" onClick={() => void save()} disabled={busy}>
+            <Cloud size={16} />
+            {busy ? "Probando..." : "Guardar token"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

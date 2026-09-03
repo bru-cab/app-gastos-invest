@@ -17,7 +17,14 @@ import { addFrequency } from "../lib/date";
 import { getDefaultAccountId, normalizeMoney, toUyu } from "../lib/calculations";
 import { getReceiptLineItemTotal, normalizeReceiptLineItems } from "../lib/inboxParser";
 import { createId } from "../lib/id";
-import { getRemoteRevision, localFinanceRepository, pullRemoteState, pushRemoteState, type SyncStatus } from "../lib/storage";
+import {
+  getRemoteRevision,
+  localFinanceRepository,
+  pullRemoteState,
+  pushRemoteState,
+  subscribeToSyncConfigChanges,
+  type SyncStatus
+} from "../lib/storage";
 
 export interface TransactionInput {
   type: TransactionType;
@@ -41,11 +48,14 @@ export interface TransactionInput {
 export function useFinanceStore() {
   const [state, setState] = useState<AppState>(() => localFinanceRepository.load());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: "checking", label: "Conectando sync" });
+  const [syncConfigVersion, setSyncConfigVersion] = useState(0);
   const initialSyncDone = useRef(false);
+  const stateRef = useRef(state);
   const remoteRevision = useRef(localFinanceRepository.getSyncRevision());
   const skipNextPush = useRef(false);
 
   useEffect(() => {
+    stateRef.current = state;
     localFinanceRepository.save(state);
 
     if (!initialSyncDone.current) return;
@@ -78,21 +88,46 @@ export function useFinanceStore() {
   }, [state]);
 
   useEffect(() => {
+    return subscribeToSyncConfigChanges(() => {
+      remoteRevision.current = undefined;
+      initialSyncDone.current = false;
+      setSyncStatus({ state: "checking", label: "Conectando sync" });
+      setSyncConfigVersion((current) => current + 1);
+    });
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     pullRemoteState()
       .then(async (envelope) => {
         if (cancelled) return;
-        initialSyncDone.current = true;
 
         if (!envelope) {
+          const pushed = await pushRemoteState(stateRef.current, remoteRevision.current);
+          if (cancelled) return;
+          initialSyncDone.current = true;
+          if (pushed) {
+            remoteRevision.current = pushed.revision;
+            localFinanceRepository.setSyncRevision(pushed.revision);
+            setSyncStatus({
+              state: "synced",
+              label: "Sync listo",
+              revision: pushed.revision,
+              updatedAt: pushed.updatedAt
+            });
+            return;
+          }
+
           setSyncStatus({ state: "local", label: "Solo local" });
           return;
         }
 
+        initialSyncDone.current = true;
+
         const localRevision = remoteRevision.current;
         if (!localRevision && localFinanceRepository.hasLocalState() && envelope.revision === 1) {
-          const pushed = await pushRemoteState(state, envelope.revision);
+          const pushed = await pushRemoteState(stateRef.current, envelope.revision);
           if (cancelled) return;
           if (pushed) {
             remoteRevision.current = pushed.revision;
@@ -126,7 +161,7 @@ export function useFinanceStore() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [syncConfigVersion]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
