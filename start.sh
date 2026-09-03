@@ -6,10 +6,25 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/home/pi/.local/bin:$PATH"
 
 cd "$APP_DIR"
 
+if [[ -f ".env" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env"
+  set +a
+fi
+
+if [[ -f ".env.local" ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source ".env.local"
+  set +a
+fi
+
 pkill -f "scripts/sync-server.mjs" 2>/dev/null || true
 pkill -f "cloudflared tunnel --url http://localhost:8787" 2>/dev/null || true
 pkill -f "localtunnel --port 8787" 2>/dev/null || true
 pkill -f "lt --port 8787" 2>/dev/null || true
+pkill -f "ngrok http 8787" 2>/dev/null || true
 
 sleep 1
 
