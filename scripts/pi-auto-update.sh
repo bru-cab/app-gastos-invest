@@ -25,6 +25,6 @@ fi
 echo "$LOG_PREFIX updating $LOCAL_HEAD -> $REMOTE_HEAD"
 git reset --hard "origin/$BRANCH"
 npm ci
-npm run build
+npm run build:deploy
 "$APP_DIR/start.sh"
 echo "$LOG_PREFIX deployed $REMOTE_HEAD"
